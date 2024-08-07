@@ -135,9 +135,85 @@ CREATE VIEW Receiving AS
     FROM receivingreportheader A JOIN receivingreportline B ON A.receivingreportid = B.receivingreportid
     GROUP BY B.purchaseorderid, B.stockitemid;
 
-SELECT round(AVG(B.ReceivingDateSeconds - A.OrderDateSeconds)::numeric/60/60,2),
-    A.supplierid FROM Purchases A INNER JOIN Receiving B 
+SELECT 
+    A.supplierid, 
+    round(AVG(B.ReceivingDateSeconds - A.OrderDateSeconds)::numeric/60/60,2) AS "Average Fulfillment Time (Hours)",
+    COUNT(DISTINCT A.purchaseorderid) AS "Number of Orders",
+    COUNT(DISTINCT A.stockitemid) AS "Number of Items"
+    FROM Purchases A INNER JOIN Receiving B 
     ON A.purchaseorderid = B.purchaseorderid AND A.stockitemid = B.stockitemid
     GROUP BY A.supplierid; 
 
+
+-- Q10a
+
+-- Before we use filter, create a query that show, for each year, 
+-- the "Number of Open Orders" and "Number of open order lines in period", as two new fields. 
+-- Also include a field that indicates the year (name this field "Year"). 
+-- An open order is an order that has not yet been delivered. 
+-- You can assume that if the order does not have an invoice 
+-- (there is no invoice id in the order header), then it has not yet been delivered.
+
+SELECT
+    EXTRACT(YEAR FROM A.orderdate) AS Year,
+    COUNT(DISTINCT A.orderid) AS "Number of Open Orders",
+    COUNT(*) AS "Number of open order lines in period"
+        FROM salesorderheader A 
+        JOIN salesorderline B ON A.orderid = B.orderid
+        WHERE A.invoiceid IS NULL
+        GROUP BY EXTRACT(YEAR FROM A.orderdate);
+
+-- Q10b
+
+-- Modify query 10.a to find only the number of orders rather than order lines. Also pivot the results to instead report the results in one row with four columns:
+-- “Number of open orders from 2013”,
+-- “Number of open orders from 2014”,
+-- “Number of open orders from 2015”, and
+-- “Number of open orders from 2016”.
+-- Create two solutions, one that uses FILTER and one that uses CASE WHEN.
+
+SELECT
+    COUNT(CASE WHEN EXTRACT(YEAR FROM orderdate) = 2013 THEN orderid END) AS "2013",
+    COUNT(CASE WHEN EXTRACT(YEAR FROM orderdate) = 2014 THEN orderid END) AS "2014",
+    COUNT(CASE WHEN EXTRACT(YEAR FROM orderdate) = 2015 THEN orderid END) AS "2015",
+    COUNT(CASE WHEN EXTRACT(YEAR FROM orderdate) = 2016 THEN orderid END) AS "2016"
+    FROM salesorderheader WHERE invoiceid IS NULL;
+
+SELECT
+    COUNT(orderid) FILTER(WHERE EXTRACT(YEAR FROM orderdate) = 2013) AS "2013",
+    COUNT(orderid) FILTER(WHERE EXTRACT(YEAR FROM orderdate) = 2014) AS "2014",
+    COUNT(orderid) FILTER(WHERE EXTRACT(YEAR FROM orderdate) = 2015) AS "2015",
+    COUNT(orderid) FILTER(WHERE EXTRACT(YEAR FROM orderdate) = 2016) AS "2016"
+    FROM salesorderheader WHERE invoiceid IS NULL;
+
+-- Q11
+CREATE VIEW Sales AS 
+    SELECT 
+        A.orderid,
+        EXTRACT(YEAR FROM A.orderdate) AS Sales_Year,
+        EXTRACT(MONTH FROM A.orderdate) AS Sales_Month,
+        B.quantity*B.unitprice*(1+B.taxrate/100) AS Sales
+            FROM salesorderheader A
+            JOIN salesorderline B ON A.orderid = B.orderid;
+
+
+
+SELECT
+    A.sales_year,
+    round(SUM(Sales) FILTER(WHERE Sales_Month = 1)::numeric/1000000, 2) AS "Jan Sales (in millions)",
+    round(SUM(Sales) FILTER(WHERE Sales_Month = 2)::numeric/1000000, 2) AS "Feb Sales (in millions)",
+    round(SUM(Sales) FILTER(WHERE Sales_Month = 3)::numeric/1000000, 2) AS "Mar Sales (in millions)",
+    round(SUM(Sales) FILTER(WHERE Sales_Month = 4)::numeric/1000000, 2) AS "Apr Sales (in millions)",
+    round(SUM(Sales) FILTER(WHERE Sales_Month = 5)::numeric/1000000, 2) AS "May Sales (in millions)",
+    round(SUM(Sales) FILTER(WHERE Sales_Month = 6)::numeric/1000000, 2) AS "Jun Sales (in millions)",
+    round(SUM(Sales) FILTER(WHERE Sales_Month = 7)::numeric/1000000, 2) AS "Jul Sales (in millions)",
+    round(SUM(Sales) FILTER(WHERE Sales_Month = 8)::numeric/1000000, 2) AS "Aug Sales (in millions)",
+    round(SUM(Sales) FILTER(WHERE Sales_Month = 9)::numeric/1000000, 2) AS "Sept Sales (in millions)",
+    round(SUM(Sales) FILTER(WHERE Sales_Month = 10)::numeric/1000000, 2) AS "Oct Sales (in millions)",
+    round(SUM(Sales) FILTER(WHERE Sales_Month = 11)::numeric/1000000, 2) AS "Nov Sales (in millions)",
+    round(SUM(Sales) FILTER(WHERE Sales_Month = 12)::numeric/1000000, 2) AS "Dec Sales (in millions)"
+    FROM Sales A
+    GROUP BY Sales_Year;
+
+SELECT * FROM Sales LIMIT 100;
 
