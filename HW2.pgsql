@@ -215,5 +215,164 @@ SELECT
     FROM Sales A
     GROUP BY Sales_Year;
 
-SELECT * FROM Sales LIMIT 100;
+-- Q13
 
+SELECT customerid, -paymentamount AS Payment_Amount
+    FROM payment 
+    ORDER BY Payment_Amount DESC
+    OFFSET 5 LIMIT 10;
+
+-- Q14
+
+SELECT customerid, SUM(-paymentamount) AS total_customer_payment
+    FROM payment
+    GROUP BY customerid
+    ORDER BY total_customer_payment ASC
+    OFFSET 5 LIMIT 10;
+
+-- Q15
+-- Step 1
+CREATE VIEW Sales_by_Customer AS 
+    SELECT C.defaultbilltocustomerid, SUM(B.quantity*B.unitprice*(1+B.taxrate/100)) as Total_Sales
+    FROM salesorderheader A
+    JOIN salesorderline B ON A.orderid = B.orderid
+    JOIN customer C ON A.customerid = C.customerid
+    GROUP BY C.defaultbilltocustomerid;
+
+DROP VIEW Sales_by_Customer;
+
+CREATE VIEW Payments_by_Customer AS
+    SELECT customerid, SUM(-paymentamount) AS total_customer_payment
+    FROM payment
+    GROUP BY customerid;
+
+DROP VIEW Payments_by_Customer;
+
+-- Step 2
+SELECT A.defaultbilltocustomerid, A.Total_Sales-B.total_customer_payment AS net
+    FROM Sales_by_Customer A 
+    JOIN Payments_by_Customer B ON A.defaultbilltocustomerid = B.customerid;
+
+-- Step 3
+
+SELECT A.defaultbilltocustomerid, A.Total_Sales-COALESCE(B.total_customer_payment,0) AS net
+    FROM Sales_by_Customer A 
+    JOIN Payments_by_Customer B ON A.defaultbilltocustomerid = B.customerid;
+
+-- Step 4
+
+CREATE VIEW Sales_by_Customer_Location AS 
+    SELECT C.defaultbilltocustomerid, D.state, SUM(B.quantity*B.unitprice*(1+B.taxrate/100)) as Total_Sales
+    FROM salesorderheader A
+    JOIN salesorderline B ON A.orderid = B.orderid
+    JOIN customer C ON A.customerid = C.customerid
+    JOIN location D on C.defaultbilltocustomerid = D.customerid
+    WHERE D.state IN('Kansas', 'Colorado', 'Utah')
+    GROUP BY C.defaultbilltocustomerid, D.state;
+
+DROP VIEW Sales_by_Customer_Location;
+
+CREATE VIEW Payments_by_Customer_Location AS
+    SELECT A.customerid, SUM(-A.paymentamount) AS total_customer_payment
+    FROM payment A
+    GROUP BY A.customerid;
+
+DROP VIEW Payments_by_Customer_Location;
+
+SELECT A.defaultbilltocustomerid, A.state, A.Total_Sales-COALESCE(B.total_customer_payment,0) AS net
+    FROM Sales_by_Customer_Location A 
+    JOIN Payments_by_Customer_Location B 
+    ON A.defaultbilltocustomerid = B.customerid
+    ORDER BY net DESC OFFSET 5 LIMIT 10;
+
+
+-- Q16
+
+WITH customers_with_orders AS (
+    SELECT DISTINCT CustomerID, ShippingLocationID
+    FROM SalesOrderHeader ORDER BY CustomerID, ShippingLocationID
+)
+SELECT B.CustomerID, B.customername, C.streetaddressline1, C.streetaddressline2, C.city, C.state, C.zip
+    FROM customers_with_orders A 
+    JOIN customer B ON A.CustomerID = B.CustomerID 
+    JOIN location C ON A.shippinglocationid = C.locationid
+    WHERE C.state IN('Kansas', 'Colorado', 'Utah');
+
+
+-- Q17
+
+WITH Customer_Sales AS (
+    SELECT C.defaultbilltocustomerid, D.state, SUM(B.quantity*B.unitprice*(1+B.taxrate/100)) as Total_Sales
+    FROM salesorderheader A
+    JOIN salesorderline B ON A.orderid = B.orderid
+    JOIN customer C ON A.customerid = C.customerid
+    JOIN location D on C.defaultbilltocustomerid = D.customerid
+    WHERE D.state IN('Kansas', 'Colorado', 'Utah')
+    GROUP BY C.defaultbilltocustomerid, D.state
+),
+Customer_Payments AS (
+    SELECT A.customerid, SUM(-A.paymentamount) AS total_customer_payment
+    FROM payment A
+    GROUP BY A.customerid
+)
+SELECT A.defaultbilltocustomerid, A.state, A.Total_Sales-COALESCE(B.total_customer_payment,0) AS net
+    FROM Customer_Sales A 
+    JOIN Customer_Payments B 
+    ON A.defaultbilltocustomerid = B.customerid
+    ORDER BY net DESC OFFSET 5 LIMIT 10;
+
+-- Q18
+
+WITH Customer_Sales AS (
+    SELECT C.defaultbilltocustomerid, D.state, SUM(B.quantity*B.unitprice*(1+B.taxrate/100)) as Total_Sales
+    FROM salesorderheader A
+    JOIN salesorderline B ON A.orderid = B.orderid
+    JOIN customer C ON A.customerid = C.customerid
+    JOIN location D on C.defaultbilltocustomerid = D.customerid
+    WHERE D.state IN('Kansas', 'Colorado', 'Utah')
+    GROUP BY C.defaultbilltocustomerid, D.state
+),
+Customer_Payments AS (
+    SELECT A.customerid, SUM(-A.paymentamount) AS total_customer_payment
+    FROM payment A
+    GROUP BY A.customerid
+),
+Sales_and_Payments AS (
+    SELECT A.defaultbilltocustomerid, A.state, A.Total_Sales-COALESCE(B.total_customer_payment,0) AS net
+    FROM Customer_Sales A 
+    JOIN Customer_Payments B 
+    ON A.defaultbilltocustomerid = B.customerid
+)
+SELECT * FROM Sales_and_Payments ORDER BY net DESC OFFSET 5 LIMIT 10;
+
+-- Q19
+WITH Customer_Sales AS (
+    SELECT C.defaultbilltocustomerid, D.state, SUM(B.quantity*B.unitprice*(1+B.taxrate/100)) as Total_Sales
+    FROM salesorderheader A
+    JOIN salesorderline B ON A.orderid = B.orderid
+    JOIN customer C ON A.customerid = C.customerid
+    JOIN location D on C.defaultbilltocustomerid = D.customerid
+    WHERE D.state IN('Kansas', 'Colorado', 'Utah')
+    GROUP BY C.defaultbilltocustomerid, D.state
+),
+Customer_Payments AS (
+    SELECT A.customerid, SUM(-A.paymentamount) AS total_customer_payment
+    FROM payment A
+    GROUP BY A.customerid
+),
+Sales_and_Payments AS (
+    SELECT A.defaultbilltocustomerid, A.state, A.Total_Sales-COALESCE(B.total_customer_payment,0) AS net
+    FROM Customer_Sales A 
+    JOIN Customer_Payments B 
+    ON A.defaultbilltocustomerid = B.customerid
+),
+Top_5 AS ( 
+    SELECT *, 'Top' AS "Type" FROM Sales_and_Payments ORDER BY net DESC LIMIT 5
+),
+Bottom_5 AS (
+    SELECT *, 'Bottom' AS "Type" FROM Sales_and_Payments ORDER BY net ASC LIMIT 5
+)
+SELECT * FROM Top_5
+UNION
+SELECT * FROM Bottom_5
+ORDER BY net DESC;
