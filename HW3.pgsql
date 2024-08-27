@@ -87,7 +87,8 @@ SELECT * FROM MB_Hierarchy;
 
 -- Q21a
 
--- First, only include sales which are the original order with a backorder, meaning the backorderid itself is not referenced in the result.
+-- First, only include sales which are the original order with a backorder, 
+-- meaning the backorderid itself is not referenced in the result.
 
 SELECT
     A.orderid, A.orderdate, A.backorderid
