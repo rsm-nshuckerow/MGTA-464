@@ -439,7 +439,7 @@ WITH MonthlyCustomerCategoryPayments AS (
         FROM MonthlyCustomerCategoryPayments
         WINDOW 
             CustomerCategoryAndTruncY_OrderByTruncM_TopToCurrent AS (PARTITION BY CustomerCategoryName, DATE_TRUNC('Year', TruncatedMonth) ORDER BY TruncatedMonth ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW),
-            CustomerCategoryAndTruncQ_OrderByTruncM_TopToCurrent AS (PARTITION BY CustomerCategoryName, DATE_TRUNC('Quarter', TruncatedMonth) ORDER BY TruncatedMonth ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW),
+            CustomerCate3goryAndTruncQ_OrderByTruncM_TopToCurrent AS (PARTITION BY CustomerCategoryName, DATE_TRUNC('Quarter', TruncatedMonth) ORDER BY TruncatedMonth ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW),
             CustomerCategory_OrderByTruncM_MinusTwoToCurrent AS (PARTITION BY CustomerCategoryName ORDER BY TruncatedMonth RANGE BETWEEN INTERVAL '2 months' PRECEDING AND CURRENT ROW);
 
 /*

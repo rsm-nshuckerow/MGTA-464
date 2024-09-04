@@ -98,22 +98,43 @@ SELECT  SalesPersonID, ReportingYear, ReportingMonth,
 
 
 -- 25.10
+WITH payments_2016 AS (
+    SELECT
+        customercategoryname,
+        SUM(-paymentamount) AS Total_paid,
+        DATE_TRUNC('month', paymentdate) AS payment_date
+    FROM 
+        payment A
+    JOIN 
+        customercategorymembership B
+        ON A.customerid = B.customerid
+    JOIN
+        customercategory C
+        ON B.customercategoryid = C.customercategoryid
+    WHERE 
+        EXTRACT(YEAR FROM paymentdate) != 2016
+    GROUP BY
+        customercategoryname, DATE_TRUNC('month', paymentdate)
+    ORDER BY
+        customercategoryname, DATE_TRUNC('month', paymentdate)
+)
 
-SELECT 
-    customercategoryname, 
-    DATE_TRUNC('month', paymentdate) AS "Date",
-    SUM(paymentamount) OVER Cumulative AS "Running Totle - Annual"
-
-FROM 
-    payment A
-JOIN 
-    customercategorymembership B
-    ON A.customerid = B.customerid
-JOIN 
-    customercategory C
-    ON B.customercategoryid = C.customercategoryid
-WHERE 
-    EXTRACT(YEAR FROM paymentdate) != 2016
+SELECT
+     customercategoryname,
+     payment_date,
+     Total_paid,
+     SUM(Total_paid) OVER Cumulative AS "Running Total - Annual",
+     (Total_paid - first_value(Total_paid) OVER Cumulative)/first_value(Total_paid) OVER Cumulative AS "Percent Change from Beginning of Year",
+     SUM(Total_paid) OVER Cumulative_Quarter AS "Running Total - Quarterly",
+     SUM(Total_paid) OVER Three_Month_Total AS "3-month Total",
+     AVG(Total_paid) OVER Three_Month_Total AS "3-month Moving Average"
+FROM
+    payments_2016
 WINDOW
-    Cumulative AS (PARTITION BY DATE_TRUNC('year', paymentdate))
-;
+    Cumulative AS (PARTITION BY customercategoryname, EXTRACT(YEAR FROM payment_date) ORDER BY payment_date ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW),
+    Cumulative_Quarter AS (PARTITION BY customercategoryname, DATE_TRUNC('Quarter', payment_date) ORDER BY payment_date ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW),
+    Three_Month_Total AS (PARTITION BY customercategoryname ORDER BY payment_date RANGE BETWEEN INTERVAL '2 months' PRECEDING AND CURRENT ROW);
+
+-- 26.1
+
+SELECT * FROM location;
