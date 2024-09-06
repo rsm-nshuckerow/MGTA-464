@@ -135,6 +135,126 @@ WINDOW
     Cumulative_Quarter AS (PARTITION BY customercategoryname, DATE_TRUNC('Quarter', payment_date) ORDER BY payment_date ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW),
     Three_Month_Total AS (PARTITION BY customercategoryname ORDER BY payment_date RANGE BETWEEN INTERVAL '2 months' PRECEDING AND CURRENT ROW);
 
--- 26.1
+-- 26.1 & 26.2
 
-SELECT * FROM location;
+WITH NotPOBox AS (
+    SELECT * 
+    FROM location
+    WHERE LEFT(streetaddressline1, 2) NOT LIKE 'PO'
+),
+StreetNumberExtraction AS (
+    SELECT 
+        SUBSTRING(streetaddressline2, 1, POSITION(' ' IN streetaddressline2) -1) AS StreetNumber,
+        SUBSTRING(streetaddressline2, POSITION(' ' IN streetaddressline2) +1) AS RightOfStreetNumber,
+        streetaddressline2
+    FROM
+        NotPOBox 
+)
+
+SELECT * FROM StreetNumberExtraction;
+
+-- 26.3
+
+WITH NotPOBox AS (
+    SELECT * 
+    FROM location
+    WHERE LEFT(streetaddressline1, 2) NOT LIKE 'PO'
+),
+StreetNumberExtraction AS (
+    SELECT 
+        SUBSTRING(streetaddressline2, 1, POSITION(' ' IN streetaddressline2) -1) AS StreetNumber,
+        SUBSTRING(streetaddressline2, POSITION(' ' IN streetaddressline2) +1) AS RightOfStreetNumber,
+        streetaddressline2
+    FROM
+        NotPOBox 
+),
+StreetNumberCheck AS(
+    SELECT *,
+        CASE
+            WHEN StreetNumber SIMILAR TO '[0-9]+'
+            THEN StreetNumber
+            ELSE NULL
+            END AS StreetNumber
+    FROM
+        StreetNumberExtraction
+)
+
+SELECT * FROM StreetNumberCheck;
+
+-- 26.4
+
+WITH NotPOBox AS (
+    SELECT * 
+    FROM location
+    WHERE LEFT(streetaddressline1, 2) NOT LIKE 'PO'
+),
+StreetNumberExtraction AS (
+    SELECT 
+        SUBSTRING(streetaddressline2, 1, POSITION(' ' IN streetaddressline2) -1) AS StreetNumber,
+        SUBSTRING(streetaddressline2, POSITION(' ' IN streetaddressline2) +1) AS RightOfStreetNumber,
+        streetaddressline2
+    FROM
+        NotPOBox 
+),
+StreetNumberCheck AS(
+    SELECT *,
+        CASE
+            WHEN StreetNumber SIMILAR TO '[0-9]+'
+            THEN StreetNumber
+            ELSE NULL
+            END AS StreetNumber
+    FROM
+        StreetNumberExtraction
+),
+StreetSuffixExtraction AS(
+    SELECT *,
+        REVERSE(SUBSTRING(REVERSE(streetaddressline2), 1, POSITION(' ' IN REVERSE(streetaddressline2)) -1)) AS StreetSuffix
+    FROM
+        StreetNumberCheck
+)
+
+SELECT * FROM StreetSuffixExtraction;
+
+-- 26.5
+
+WITH NotPOBox AS (
+    SELECT * 
+    FROM location
+    WHERE LEFT(streetaddressline1, 2) NOT LIKE 'PO'
+),
+StreetNumberExtraction AS (
+    SELECT 
+        SUBSTRING(streetaddressline2, 1, POSITION(' ' IN streetaddressline2) -1) AS StreetNumber,
+        SUBSTRING(streetaddressline2, POSITION(' ' IN streetaddressline2) +1) AS RightOfStreetNumber,
+        streetaddressline2
+    FROM
+        NotPOBox 
+),
+StreetNumberCheck AS(
+    SELECT *,
+        CASE
+            WHEN StreetNumber SIMILAR TO '[0-9]+'
+            THEN StreetNumber
+            ELSE NULL
+            END AS StreetNumber
+    FROM
+        StreetNumberExtraction
+),
+StreetSuffixExtraction AS(
+    SELECT *,
+        REVERSE(SUBSTRING(REVERSE(streetaddressline2), 1, POSITION(' ' IN REVERSE(streetaddressline2)) -1)) AS StreetSuffix
+    FROM
+        StreetNumberCheck
+),
+StreetSuffixCheck AS(
+    SELECT *,
+        Standard,
+        LEFT(rightofstreetnumber, LENGTH(rightofstreetnumber)-LENGTH(streetsuffix) -1) AS StreetName
+    FROM
+        StreetSuffixExtraction A
+    JOIN
+        StreetSuffixMapping B
+        ON UPPER(A.streetsuffix) = B.Written
+)
+
+SELECT * FROM StreetSuffixCheck;
