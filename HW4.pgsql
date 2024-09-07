@@ -248,7 +248,6 @@ StreetSuffixExtraction AS(
 ),
 StreetSuffixCheck AS(
     SELECT *,
-        Standard,
         LEFT(rightofstreetnumber, LENGTH(rightofstreetnumber)-LENGTH(streetsuffix) -1) AS StreetName
     FROM
         StreetSuffixExtraction A
@@ -258,3 +257,236 @@ StreetSuffixCheck AS(
 )
 
 SELECT * FROM StreetSuffixCheck;
+
+-- 27.1
+
+WITH NotPOBox AS (
+    SELECT * 
+    FROM location
+    WHERE LEFT(streetaddressline1, 2) NOT LIKE 'PO'
+),
+StreetNumberExtraction AS (
+    SELECT 
+        SUBSTRING(streetaddressline2, 1, POSITION(' ' IN streetaddressline2) -1) AS StreetNumber,
+        SUBSTRING(streetaddressline2, POSITION(' ' IN streetaddressline2) +1) AS RightOfStreetNumber,
+        streetaddressline2
+    FROM
+        NotPOBox 
+),
+StreetNumberCheck AS(
+    SELECT *,
+        CASE
+            WHEN StreetNumber SIMILAR TO '[0-9]+'
+            THEN StreetNumber
+            ELSE NULL
+            END AS StreetNumber
+    FROM
+        StreetNumberExtraction
+),
+StreetSuffixExtraction AS(
+    SELECT *,
+        REVERSE(SUBSTRING(REVERSE(streetaddressline2), 1, POSITION(' ' IN REVERSE(streetaddressline2)) -1)) AS StreetSuffix
+    FROM
+        StreetNumberCheck
+),
+StreetSuffixCheck AS(
+    SELECT *,
+        LEFT(rightofstreetnumber, LENGTH(rightofstreetnumber)-LENGTH(streetsuffix) -1) AS StreetName
+    FROM
+        StreetSuffixExtraction A
+    JOIN
+        StreetSuffixMapping B
+        ON UPPER(A.streetsuffix) = B.Written
+)
+
+SELECT 
+    'StreetNameMatch' AS MatchType,
+    A.streetaddressline2,
+    A.streetname,
+    B.streetnumber,
+    B.streetname,
+    B.streetsuffix
+FROM
+    StreetSuffixCheck A
+JOIN
+    employee_table B
+    ON A.streetname = B.streetname
+;
+
+-- 27.2
+
+WITH NotPOBox AS (
+    SELECT * 
+    FROM location
+    WHERE LEFT(streetaddressline1, 2) NOT LIKE 'PO'
+),
+StreetNumberExtraction AS (
+    SELECT 
+        SUBSTRING(streetaddressline2, 1, POSITION(' ' IN streetaddressline2) -1) AS StreetNumber,
+        SUBSTRING(streetaddressline2, POSITION(' ' IN streetaddressline2) +1) AS RightOfStreetNumber,
+        streetaddressline2
+    FROM
+        NotPOBox 
+),
+StreetNumberCheck AS(
+    SELECT *,
+        CASE
+            WHEN StreetNumber SIMILAR TO '[0-9]+'
+            THEN StreetNumber
+            ELSE NULL
+            END AS CheckedStreetNumber
+    FROM
+        StreetNumberExtraction
+),
+StreetSuffixExtraction AS(
+    SELECT *,
+        REVERSE(SUBSTRING(REVERSE(streetaddressline2), 1, POSITION(' ' IN REVERSE(streetaddressline2)) -1)) AS StreetSuffix
+    FROM
+        StreetNumberCheck
+),
+StreetSuffixCheck AS(
+    SELECT A.*,
+        Standard,
+        LEFT(rightofstreetnumber, LENGTH(rightofstreetnumber)-LENGTH(streetsuffix) -1) AS StreetName
+    FROM
+        StreetSuffixExtraction A
+    JOIN
+        StreetSuffixMapping B
+        ON UPPER(A.streetsuffix) = B.Written
+)
+
+SELECT 
+    'StreetNameMatch' AS MatchType,
+    A.streetaddressline2,
+    A.streetname,
+    B.streetnumber,
+    B.streetname,
+    B.streetsuffix
+FROM
+    StreetSuffixCheck A
+JOIN
+    employee_table B
+    ON A.streetname = B.streetname
+
+UNION
+
+SELECT
+    'FullStreetAddressMatch' AS MatchType,
+    A.streetaddressline2,
+    A.streetname,
+    B.streetnumber,
+    B.streetname,
+    B.streetsuffix
+FROM
+    StreetSuffixCheck A
+JOIN
+    employee_table B
+    ON A.streetname = B.streetname
+    AND A.streetnumber::int = B.streetnumber
+    AND A.standard = B.streetsuffix;
+
+-- 27.3
+
+WITH NotPOBox AS (
+    SELECT * 
+    FROM location
+    WHERE LEFT(streetaddressline1, 2) NOT LIKE 'PO'
+),
+StreetNumberExtraction AS (
+    SELECT 
+        SUBSTRING(streetaddressline2, 1, POSITION(' ' IN streetaddressline2) -1) AS StreetNumber,
+        SUBSTRING(streetaddressline2, POSITION(' ' IN streetaddressline2) +1) AS RightOfStreetNumber,
+        streetaddressline2
+    FROM
+        NotPOBox 
+),
+StreetNumberCheck AS(
+    SELECT *,
+        CASE
+            WHEN StreetNumber SIMILAR TO '[0-9]+'
+            THEN StreetNumber
+            ELSE NULL
+            END AS CheckedStreetNumber
+    FROM
+        StreetNumberExtraction
+),
+StreetSuffixExtraction AS(
+    SELECT *,
+        REVERSE(SUBSTRING(REVERSE(streetaddressline2), 1, POSITION(' ' IN REVERSE(streetaddressline2)) -1)) AS StreetSuffix
+    FROM
+        StreetNumberCheck
+),
+StreetSuffixCheck AS(
+    SELECT A.*,
+        Standard,
+        LEFT(rightofstreetnumber, LENGTH(rightofstreetnumber)-LENGTH(streetsuffix) -1) AS StreetName
+    FROM
+        StreetSuffixExtraction A
+    JOIN
+        StreetSuffixMapping B
+        ON UPPER(A.streetsuffix) = B.Written
+)
+
+SELECT 
+    'StreetNameMatch' AS MatchType,
+    A.streetaddressline2,
+    A.streetname,
+    B.streetnumber,
+    B.streetname,
+    B.streetsuffix
+FROM
+    StreetSuffixCheck A
+JOIN
+    employee_table B
+    ON A.streetname = B.streetname
+
+UNION
+
+SELECT
+    'FullStreetAddressMatch' AS MatchType,
+    A.streetaddressline2,
+    A.streetname,
+    B.streetnumber,
+    B.streetname,
+    B.streetsuffix
+FROM
+    StreetSuffixCheck A
+JOIN
+    employee_table B
+    ON A.streetname = B.streetname
+    AND A.streetnumber::int = B.streetnumber
+    AND A.standard = B.streetsuffix
+
+UNION
+
+SELECT
+    'StreetNameAndNumberMatchSoundexDifference' AS MatchType,
+    A.streetaddressline2,
+    A.streetname,
+    B.streetnumber,
+    B.streetname,
+    B.streetsuffix
+FROM
+    StreetSuffixCheck A
+JOIN
+    employee_table B
+    ON A.streetnumber::int = B.streetnumber
+    WHERE
+        DIFFERENCE(A.streetname, B.streetname) > 3
+
+UNION
+
+SELECT
+    'LevenshteinMatch' AS MatchType,
+    A.streetaddressline2,
+    A.streetname,
+    B.streetnumber,
+    B.streetname,
+    B.streetsuffix
+FROM
+    StreetSuffixCheck A
+JOIN
+    employee_table B
+    ON A.streetnumber::int = B.streetnumber
+    WHERE
+        levenshtein_less_equal(A.streetname, B.streetname, 1) < 2;
